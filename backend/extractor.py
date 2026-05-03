@@ -1,3 +1,4 @@
+import pdfplumber
 
 def extract_text_from_pdf(pdf_path: str) -> dict:
     pages_text = []
@@ -25,17 +26,20 @@ def extract_text_from_pdf(pdf_path: str) -> dict:
         "pages_skipped": skipped_pages,
         "char_count": len(full_text)
     }
+
 def chunk_text(text: str, chunk_size: int = 3000, overlap: int = 200) -> list[str]:
     """
-    Split long text into overlapping chunks for passing to Claude.
-    chunk_size: ~750 tokens per chunk
-    overlap: repeated chars at boundaries so context isn't lost
+    Split long text into overlapping chunks.
+    chunk_size: chars per chunk (~750 tokens)
+    overlap: chars repeated between chunks so context isn't lost at boundaries
     """
+
     if len(text) <= chunk_size:
         return [text]
 
     chunks = []
     start = 0
+
     while start < len(text):
         end = start + chunk_size
         chunks.append(text[start:end])
