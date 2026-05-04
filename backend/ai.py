@@ -7,17 +7,25 @@ load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-def extract_topics(full_text: str) -> list[str]:
+def extract_topics(full_text: str, num_pdfs: int = 1) -> list[str]:
+    if num_pdfs == 1:
+        min_topics, max_topics = 5, 15
+    elif num_pdfs <= 3:
+        min_topics, max_topics = 10, 20
+    else:
+        min_topics, max_topics = 15, 30
+
     prompt = f"""You are an expert university teaching assistant.
 
-Below is the full text extracted from a university course's lecture materials.
+Below is the full text extracted from {num_pdfs} university course document(s).
 
-Your task: identify the 10 to 20 most important, specific, exam-relevant topics covered in this course.
+Your task: identify the {min_topics} to {max_topics} most important, specific, exam-relevant topics covered across all the materials.
 
 Rules:
 - Be specific. Write "Fourier transforms" not "signal processing concepts".
 - Write "Eigenvalue decomposition" not "linear algebra".
 - Each topic should be something a student could be tested on in an exam.
+- Do not include duplicates or near-duplicates — if two documents cover the same topic, list it once.
 - Do not include administrative topics like "course overview" or "grading".
 - Return ONLY a valid JSON array of strings. No explanation, no markdown, no extra text.
 
@@ -25,7 +33,7 @@ Example of good output:
 ["Fourier transforms", "Convolution theorem", "Z-transforms", "Sampling theorem"]
 
 Course materials:
-{full_text[:12000]}
+{full_text}
 
 Return the JSON array now:"""
 
@@ -37,7 +45,6 @@ Return the JSON array now:"""
 
     raw = message.content[0].text.strip()
 
-    # Strip markdown fences if Claude adds them despite instructions
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
