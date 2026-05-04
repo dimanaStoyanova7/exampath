@@ -1,9 +1,11 @@
 import tempfile
 import os
+import json
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from extractor import extract_text_from_pdf
+from ai import extract_topics
 
 load_dotenv()
 
@@ -29,8 +31,10 @@ import tempfile
 import os
 from fastapi import UploadFile, File, HTTPException
 
-@app.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
+
+
+@app.post("/extract-topics")
+async def extract_topics_route(file: UploadFile = File(...)):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files accepted")
 
@@ -43,22 +47,21 @@ async def upload_pdf(file: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
-        result = extract_text_from_pdf(tmp_path)
+        extraction = extract_text_from_pdf(tmp_path)
     finally:
-        os.unlink(tmp_path)  # always delete the temp file
+        os.unlink(tmp_path)
 
-    if result["char_count"] == 0:
-        raise HTTPException(
-            status_code=422,
-            detail="Could not extract any text. The PDF may be scanned/image-based."
-        )
+    if extraction["char_count"] == 0:
+        raise HTTPException(status_code=422, detail="Could not extract text from PDF")
+
+    try:
+        topics = extract_topics(extraction["full_text"])
+    except (json.JSONDecodeError, ValueError) as e:
+        raise HTTPException(status_code=500, detail=f"Topic extraction failed: {str(e)}")
 
     return {
         "filename": file.filename,
-        "pages_extracted": result["pages_extracted"],
-        "total_pages": result["total_pages"],
-        "pages_skipped": result["pages_skipped"],
-        "char_count": result["char_count"],
-        "text_preview": result["full_text"][:500],
-        "full_text": result["full_text"],
+        "topic_count": len(topics),
+        "topics": topics,
+        "full text": extraction["full_text"]
     }
