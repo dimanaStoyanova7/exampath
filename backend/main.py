@@ -1,16 +1,19 @@
 import tempfile
 import os
 import json
+import uuid
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated
 from dotenv import load_dotenv
 from extractor import extract_text_from_pdf
-from ai import extract_topics
+from ai import extract_topics, generate_quiz
 
 load_dotenv()
 
 app = FastAPI()
+
+sessions = {}
 
 app.add_middleware(
     CORSMiddleware,
@@ -100,10 +103,19 @@ async def extract_topics_route(files: Annotated[list[UploadFile], File(...)]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Topic extraction failed: {type(e).__name__}: {str(e)}")
 
-    return {
-        "topic_count": len(topics),
+    session_id = str(uuid.uuid4())
+    sessions[session_id] = {
+        "session_id": session_id,
         "topics": topics,
         "full_text": combined_text,
+        "quiz": None,
+        "results": None
+    }
+
+    return {
+        "session_id": session_id,
+        "topic_count": len(topics),
+        "topics": topics,
         "budget": {
             "chars_used": chars_used,
             "chars_total": CHAR_BUDGET,
@@ -111,4 +123,32 @@ async def extract_topics_route(files: Annotated[list[UploadFile], File(...)]):
             "excluded_files": excluded_files,
             "skipped_files": skipped_files
         }
+    }
+
+class SessionRequest(BaseModel):
+    session_id: str
+
+@app.post("/generate-quiz")
+async def generate_quiz_route(body: SessionRequest):
+    session = sessions.get(body.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if session["quiz"] is not None:
+        # Already generated — return cached quiz
+        return {"session_id": body.session_id, "questions": session["quiz"]}
+
+    try:
+        questions = generate_quiz(session["topics"], session["full_text"])
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Claude returned invalid JSON: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Quiz generation failed: {type(e).__name__}: {str(e)}")
+
+    session["quiz"] = questions
+
+    return {
+        "session_id": body.session_id,
+        "question_count": len(questions),
+        "questions": questions
     }
