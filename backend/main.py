@@ -4,6 +4,7 @@ import json
 import uuid
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from typing import Annotated
 from dotenv import load_dotenv
 from extractor import extract_text_from_pdf
@@ -135,8 +136,12 @@ async def generate_quiz_route(body: SessionRequest):
         raise HTTPException(status_code=404, detail="Session not found")
 
     if session["quiz"] is not None:
-        # Already generated — return cached quiz
-        return {"session_id": body.session_id, "questions": session["quiz"]}
+        # Return cached — strip correct_answer before sending
+        safe_questions = [
+            {k: v for k, v in q.items() if k != "correct_answer"}
+            for q in session["quiz"]
+        ]
+        return {"session_id": body.session_id, "questions": safe_questions}
 
     try:
         questions = generate_quiz(session["topics"], session["full_text"])
@@ -145,10 +150,16 @@ async def generate_quiz_route(body: SessionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Quiz generation failed: {type(e).__name__}: {str(e)}")
 
-    session["quiz"] = questions
+    session["quiz"] = questions  # stored WITH correct_answer
+
+    # Return WITHOUT correct_answer
+    safe_questions = [
+        {k: v for k, v in q.items() if k != "correct_answer"}
+        for q in questions
+    ]
 
     return {
         "session_id": body.session_id,
-        "question_count": len(questions),
-        "questions": questions
+        "question_count": len(safe_questions),
+        "questions": safe_questions
     }

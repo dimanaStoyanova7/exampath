@@ -59,15 +59,12 @@ Return the JSON array now:"""
     return [str(t) for t in topics]
 
 
-
 def generate_quiz(topics: list[str], full_text: str) -> list[dict]:
     num_topics = len(topics)
-    # Distribute questions across topics, cap at 25 total
     per_topic = max(1, min(5, 25 // num_topics))
-
     topics_block = "\n".join(f"- {t}" for t in topics)
 
-    prompt = f"""You are an expert university professor writing a diagnostic quiz.
+    prompt = f"""You are an expert university professor writing a multiple choice diagnostic quiz.
 
 The course covers these topics:
 {topics_block}
@@ -75,31 +72,47 @@ The course covers these topics:
 Relevant course material:
 {full_text[:15000]}
 
-Your task: write exactly {per_topic} diagnostic question(s) for EACH topic listed above.
-Total questions: {num_topics * per_topic} (exactly {per_topic} per topic, no more, no less).
+Your task: write exactly {per_topic} question(s) for EACH topic listed above.
+Total questions: {num_topics * per_topic}.
+
+For each question decide whether it suits a 4-option MCQ or a True/False question.
+- Use True/False for factual statements that are clearly true or false.
+- Use 4-option MCQ for questions requiring understanding or distinction between concepts.
 
 Rules:
-- Questions must test genuine understanding, not just memorisation or definition recall.
-- Each question should be answerable in 2-4 sentences by a student who understands the topic.
-- Make questions specific to the course material above, not generic textbook questions.
-- Return ONLY a valid JSON array of objects. No explanation, no markdown, no extra text.
+- Questions must test genuine understanding, not just memorisation.
+- For MCQ: make all 4 options plausible — avoid obviously wrong distractors.
+- For True/False: make the statement specific, not trivially obvious.
+- The correct answer must be unambiguously correct based on the course material.
+- Return ONLY a valid JSON array. No explanation, no markdown, no extra text.
 
-Return format — one object per question:
+Return format:
 [
-  {{"topic": "exact topic name here", "question": "your question here"}},
-  ...
+  {{
+    "topic": "exact topic name",
+    "question": "question text here",
+    "question_type": "mcq",
+    "options": {{"a": "...", "b": "...", "c": "...", "d": "..."}},
+    "correct_answer": "b"
+  }},
+  {{
+    "topic": "exact topic name",
+    "question": "statement to evaluate",
+    "question_type": "true_false",
+    "options": {{"a": "True", "b": "False"}},
+    "correct_answer": "a"
+  }}
 ]
 
 Return the full JSON array now:"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=3000,
+        max_tokens=4000,
         messages=[{"role": "user", "content": prompt}]
     )
 
     raw = message.content[0].text.strip()
-
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
@@ -107,18 +120,71 @@ Return the full JSON array now:"""
         raw = raw.strip()
 
     questions = json.loads(raw)
-
     if not isinstance(questions, list):
         raise ValueError("Claude did not return a list")
 
-    # Add question_id and normalise fields
     result = []
     for i, q in enumerate(questions):
-        if isinstance(q, dict) and "topic" in q and "question" in q:
-            result.append({
-                "question_id": i,
-                "topic": str(q["topic"]),
-                "question": str(q["question"])
-            })
+        if not isinstance(q, dict):
+            continue
+        if not all(k in q for k in ["topic", "question", "options", "correct_answer"]):
+            continue
+        result.append({
+            "question_id": i,
+            "topic": str(q["topic"]),
+            "question": str(q["question"]),
+            "question_type": str(q.get("question_type", "mcq")),
+            "options": q["options"],
+            "correct_answer": str(q["correct_answer"]).lower()
+        })
 
     return result
+
+
+def generate_topic_judgments(topic_scores: list[dict]) -> list[dict]:
+    """
+    Given per-topic score breakdown, ask Claude to write
+    a one-line judgment per topic. Pure summarisation — no grading.
+    """
+    lines = []
+    for t in topic_scores:
+        lines.append(
+            f"Topic: {t['topic']} — {t['correct']}/{t['total']} correct"
+        )
+    scores_block = "\n".join(lines)
+
+    prompt = f"""You are a university professor reviewing a student's quiz results.
+
+Here are the results per topic:
+{scores_block}
+
+For each topic write:
+- tier: "positive" if more than half correct, "negative" if half or fewer correct, "neutral" if exactly half
+- judgment: one sentence describing the student's understanding of this topic
+
+Return ONLY a valid JSON array. No markdown, no extra text.
+
+Return format:
+[
+  {{"topic": "...", "tier": "positive", "judgment": "..."}}
+]
+
+Return the JSON array now:"""
+
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1500,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    raw = message.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+
+    judgments = json.loads(raw)
+    if not isinstance(judgments, list):
+        raise ValueError("Claude did not return a list")
+    return judgments
