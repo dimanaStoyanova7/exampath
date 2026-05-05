@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import Annotated
 from dotenv import load_dotenv
 from extractor import extract_text_from_pdf
-from ai import extract_topics, generate_quiz
+from ai import extract_topics, generate_quiz, generate_topic_judgments
 
 load_dotenv()
 
@@ -162,4 +162,114 @@ async def generate_quiz_route(body: SessionRequest):
         "session_id": body.session_id,
         "question_count": len(safe_questions),
         "questions": safe_questions
+    }
+
+
+
+class AnswerItem(BaseModel):
+    question_id: int
+    selected: str  # "a", "b", "c", or "d"
+
+class SubmitAnswersRequest(BaseModel):
+    session_id: str
+    answers: list[AnswerItem]
+
+@app.post("/submit-answers")
+async def submit_answers_route(body: SubmitAnswersRequest):
+    session = sessions.get(body.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if session["quiz"] is None:
+        raise HTTPException(status_code=400, detail="Quiz not generated yet — call /generate-quiz first")
+
+    if session["results"] is not None:
+        return session["results"]  # cached
+
+    # Build answer lookup: question_id -> selected letter
+    answer_map = {a.question_id: a.selected.lower() for a in body.answers}
+
+    # Grade each question with pure Python
+    question_grades = []
+    for q in session["quiz"]:
+        qid = q["question_id"]
+        selected = answer_map.get(qid, "")
+        correct = selected == q["correct_answer"]
+        question_grades.append({
+            "question_id": qid,
+            "topic": q["topic"],
+            "selected": selected,
+            "correct_answer": q["correct_answer"],  # reveal after submission
+            "correct": correct
+        })
+
+    # Compute per-topic score breakdown
+    topic_scores = {}
+    for g in question_grades:
+        t = g["topic"]
+        if t not in topic_scores:
+            topic_scores[t] = {"topic": t, "correct": 0, "total": 0}
+        topic_scores[t]["total"] += 1
+        if g["correct"]:
+            topic_scores[t]["correct"] += 1
+
+    topic_score_list = list(topic_scores.values())
+
+    # Ask Claude to write one-line judgments (no grading — just summaries)
+    try:
+        judgments = generate_topic_judgments(topic_score_list)
+    except Exception as e:
+        # Non-fatal — fall back to no judgment if Claude fails
+        judgments = [
+            {"topic": t["topic"], "tier": "neutral", "judgment": ""}
+            for t in topic_score_list
+        ]
+
+    # Merge scores and judgments
+    judgment_map = {j["topic"]: j for j in judgments}
+    topic_summaries = []
+    for t in topic_score_list:
+        j = judgment_map.get(t["topic"], {})
+        ratio = t["correct"] / t["total"] if t["total"] > 0 else 0
+        if ratio > 0.5:
+            tier = "positive"
+        elif ratio == 0.5:
+            tier = "neutral"
+        else:
+            tier = "negative"
+        topic_summaries.append({
+            "topic": t["topic"],
+            "correct": t["correct"],
+            "total": t["total"],
+            "tier": j.get("tier", tier),  # prefer Claude's tier, fall back to computed
+            "judgment": j.get("judgment", "")
+        })
+
+    total_correct = sum(1 for g in question_grades if g["correct"])
+    total_questions = len(question_grades)
+
+    results = {
+        "session_id": body.session_id,
+        "total_correct": total_correct,
+        "total_questions": total_questions,
+        "percentage": round(total_correct / total_questions * 100) if total_questions > 0 else 0,
+        "question_grades": question_grades,
+        "topic_summaries": topic_summaries
+    }
+
+    session["results"] = results
+    return results
+
+
+@app.get("/session/{session_id}")
+async def get_session(session_id: str):
+    session = sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "session_id": session_id,
+        "topics": session["topics"],
+        "quiz_generated": session["quiz"] is not None,
+        "quiz_question_count": len(session["quiz"]) if session["quiz"] else 0,
+        "results_available": session["results"] is not None
     }
