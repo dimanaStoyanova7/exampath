@@ -2,7 +2,10 @@ import tempfile
 import os
 import json
 import uuid
+import asyncio
 import traceback
+from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -13,9 +16,39 @@ from ai import extract_topics, generate_quiz, generate_topic_judgments
 
 load_dotenv()
 
-app = FastAPI()
+SESSION_TTL = timedelta(minutes=15)
+sessions: dict = {}
 
-sessions = {}
+
+async def _cleanup_sessions():
+    while True:
+        await asyncio.sleep(300)
+        cutoff = datetime.utcnow() - SESSION_TTL
+        expired = [sid for sid, s in list(sessions.items()) if s["last_accessed"] < cutoff]
+        for sid in expired:
+            sessions.pop(sid, None)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(_cleanup_sessions())
+    yield
+    task.cancel()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+def _get_session(session_id: str) -> dict | None:
+    """Return the session if it exists and hasn't expired; update last_accessed."""
+    s = sessions.get(session_id)
+    if not s:
+        return None
+    if datetime.utcnow() - s["last_accessed"] > SESSION_TTL:
+        sessions.pop(session_id, None)
+        return None
+    s["last_accessed"] = datetime.utcnow()
+    return s
 
 app.add_middleware(
     CORSMiddleware,
@@ -111,7 +144,8 @@ async def extract_topics_route(files: Annotated[list[UploadFile], File(...)]):
         "topics": topics,
         "full_text": combined_text,
         "quiz": None,
-        "results": None
+        "results": None,
+        "last_accessed": datetime.utcnow(),
     }
 
     return {
@@ -132,9 +166,9 @@ class SessionRequest(BaseModel):
 
 @app.post("/generate-quiz")
 async def generate_quiz_route(body: SessionRequest):
-    session = sessions.get(body.session_id)
+    session = _get_session(body.session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or expired")
 
     if session["quiz"] is not None:
         # Return cached — strip correct_answer before sending
@@ -179,9 +213,9 @@ class SubmitAnswersRequest(BaseModel):
 
 @app.post("/submit-answers")
 async def submit_answers_route(body: SubmitAnswersRequest):
-    session = sessions.get(body.session_id)
+    session = _get_session(body.session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or expired")
 
     if session["quiz"] is None:
         raise HTTPException(status_code=400, detail="Quiz not generated yet — call /generate-quiz first")
@@ -266,9 +300,9 @@ async def submit_answers_route(body: SubmitAnswersRequest):
 
 @app.get("/session/{session_id}")
 async def get_session(session_id: str):
-    session = sessions.get(session_id)
+    session = _get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or expired")
     return {
         "session_id": session_id,
         "topics": session["topics"],
