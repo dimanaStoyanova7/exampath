@@ -91,7 +91,7 @@ Rules:
 - Questions must test genuine understanding, not just memorisation.
 - For MCQ: make all 4 options plausible — avoid obviously wrong distractors.
 - For True/False: make the statement specific, not trivially obvious.
-- For True/False: ALWAYS include BOTH options: {"a": "True", "b": "False"}. Never omit one.
+- For True/False: ALWAYS include BOTH options: {{"a": "True", "b": "False"}}. Never omit one.
 - The correct answer must be unambiguously correct based on the course material.
 - Return ONLY a valid JSON array. No explanation, no markdown, no extra text.
 
