@@ -57,7 +57,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-CHAR_BUDGET = 18000  # safe limit leaving room for the prompt itself
+CHAR_BUDGET = 80000
 
 @app.get("/health")
 def health():

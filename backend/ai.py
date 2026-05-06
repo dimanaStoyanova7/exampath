@@ -78,7 +78,7 @@ The course covers these topics:
 {topics_block}
 
 Relevant course material:
-{full_text[:15000]}
+{full_text[:40000]}
 
 Your task: write exactly {per_topic} question(s) for EACH topic listed above.
 Total questions: {num_topics * per_topic}.
