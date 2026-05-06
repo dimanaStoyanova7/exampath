@@ -55,7 +55,8 @@ export default function TopicsScreen() {
             key={`${topic}-${i}`}
             className="animate-fade-up"
             style={{
-              animationDelay: `${i * 40}ms`,
+              animationDelay: `${i * 100}ms`,
+              animationFillMode: 'both',
               padding: '0.54rem 0.86rem',
               borderRadius: 999,
               border: '1px solid rgba(139, 92, 246, 0.34)',
