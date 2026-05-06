@@ -83,7 +83,7 @@ export default function UploadScreen() {
       setScreen('topics')
     } catch {
       stopCycle()
-      setUploadError('Quiz generation failed.')
+      setUploadError("We couldn't process your materials. Make sure your PDFs contain relevant course content.")
       setQuizFailed(true)
       setScreen('upload')
     }
@@ -108,7 +108,7 @@ export default function UploadScreen() {
       setScreen('topics')
     } catch {
       stopCycle()
-      setUploadError('Quiz generation failed again. Please try re-uploading.')
+      setUploadError('Still unable to process these materials. Try uploading different files.')
       setScreen('upload')
     }
   }
