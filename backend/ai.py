@@ -67,9 +67,12 @@ Return the JSON array now:"""
     return [str(t) for t in topics]
 
 
-def generate_quiz(topics: list[str], full_text: str) -> list[dict]:
+def generate_quiz(topics: list[str], full_text: str, per_topic: int | None = None) -> list[dict]:
     num_topics = len(topics)
-    per_topic = max(1, min(5, 25 // num_topics))
+    if per_topic is None:
+        per_topic = max(1, min(3, 25 // num_topics))
+    else:
+        per_topic = min(3, max(1, per_topic))
     topics_block = "\n".join(f"- {t}" for t in topics)
 
     prompt = f"""You are an expert university professor writing a multiple choice diagnostic quiz.

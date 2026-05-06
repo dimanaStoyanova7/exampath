@@ -176,6 +176,7 @@ async def extract_topics_route(files: Annotated[list[UploadFile], File(...)]):
 
 class SessionRequest(BaseModel):
     session_id: str
+    questions_per_topic: int = 2
 
 @app.post("/generate-quiz")
 async def generate_quiz_route(body: SessionRequest):
@@ -192,7 +193,7 @@ async def generate_quiz_route(body: SessionRequest):
         return {"session_id": body.session_id, "questions": safe_questions}
 
     try:
-        questions = generate_quiz(session["topics"], session["full_text"])
+        questions = generate_quiz(session["topics"], session["full_text"], per_topic=body.questions_per_topic)
     except json.JSONDecodeError as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Claude returned invalid JSON: {str(e)}")

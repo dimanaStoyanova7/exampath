@@ -1,15 +1,13 @@
 'use client'
 import { useState, useRef, DragEvent } from 'react'
 import { useApp } from '@/context/AppContext'
-import { uploadAndAnalyze, generateQuiz } from '@/lib/api'
+import { uploadAndAnalyze } from '@/lib/api'
 
 export default function UploadScreen() {
   const {
-    setScreen, setLoadingMessage, setSessionId, setTopics, setBudget, setQuestions,
+    setScreen, setLoadingMessage, setSessionId, setTopics, setBudget,
     resetForNewUpload,
     uploadError, setUploadError,
-    quizFailed, setQuizFailed,
-    quizRetryId, setQuizRetryId,
   } = useApp()
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
@@ -49,7 +47,7 @@ export default function UploadScreen() {
     resetForNewUpload()
     setScreen('loading')
 
-    let stopCycle = startMessageCycle([
+    const stopCycle = startMessageCycle([
       'Reading your materials…',
       'Identifying key topics…',
     ], 4500)
@@ -68,49 +66,7 @@ export default function UploadScreen() {
     setSessionId(data.session_id)
     setTopics(data.topics)
     setBudget(data.budget)
-    setQuizRetryId(data.session_id)
-
-    stopCycle = startMessageCycle([
-      'Crafting your questions…',
-      'Calibrating difficulty…',
-      'Almost ready…',
-    ], 4000)
-
-    try {
-      const quiz = await generateQuiz(data.session_id)
-      stopCycle()
-      setQuestions(quiz.questions)
-      setScreen('topics')
-    } catch {
-      stopCycle()
-      setUploadError("We couldn't process your materials. Make sure your PDFs contain relevant course content.")
-      setQuizFailed(true)
-      setScreen('upload')
-    }
-  }
-
-  const handleRetryQuiz = async () => {
-    if (!quizRetryId) return
-    setUploadError('')
-    setQuizFailed(false)
-    setScreen('loading')
-
-    const stopCycle = startMessageCycle([
-      'Crafting your questions…',
-      'Calibrating difficulty…',
-      'Almost ready…',
-    ], 4000)
-
-    try {
-      const quiz = await generateQuiz(quizRetryId)
-      stopCycle()
-      setQuestions(quiz.questions)
-      setScreen('topics')
-    } catch {
-      stopCycle()
-      setUploadError('Still unable to process these materials. Try uploading different files.')
-      setScreen('upload')
-    }
+    setScreen('topics')
   }
 
   return (
@@ -239,29 +195,6 @@ export default function UploadScreen() {
         <p style={{ color: '#ef4444', marginBottom: 10, fontSize: 14 }}>
           {uploadError}
         </p>
-      )}
-
-      {quizFailed && (
-        <button
-          type="button"
-          onClick={handleRetryQuiz}
-          style={{
-            display: 'block',
-            marginBottom: 14,
-            padding: '10px 18px',
-            borderRadius: 10,
-            border: '1px solid var(--accent)',
-            background: 'transparent',
-            color: 'var(--accent)',
-            fontFamily: 'DM Sans, sans-serif',
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: 'pointer',
-            letterSpacing: '0.01em'
-          }}
-        >
-          Retry quiz generation →
-        </button>
       )}
 
       <button

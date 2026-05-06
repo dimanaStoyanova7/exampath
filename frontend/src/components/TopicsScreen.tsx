@@ -1,8 +1,53 @@
 'use client'
+import { useState } from 'react'
 import { useApp } from '@/context/AppContext'
+import { generateQuiz } from '@/lib/api'
 
 export default function TopicsScreen() {
-  const { topics, budget, setScreen } = useApp()
+  const {
+    topics, budget, sessionId,
+    setScreen, setLoadingMessage, setQuestions,
+    generationError, setGenerationError,
+  } = useApp()
+
+  const [perTopic, setPerTopic] = useState(2)
+  const [loading, setLoading] = useState(false)
+
+  const startMessageCycle = (msgs: string[], ms = 4000) => {
+    setLoadingMessage(msgs[0])
+    if (msgs.length === 1) return () => {}
+    let i = 0
+    const id = setInterval(() => {
+      i = (i + 1) % msgs.length
+      setLoadingMessage(msgs[i])
+    }, ms)
+    return () => clearInterval(id)
+  }
+
+  const handleStart = async () => {
+    setGenerationError('')
+    setLoading(true)
+    setScreen('loading')
+
+    const stopCycle = startMessageCycle([
+      'Crafting your questions…',
+      'Calibrating difficulty…',
+      'Almost ready…',
+    ], 4000)
+
+    try {
+      const quiz = await generateQuiz(sessionId, perTopic)
+      stopCycle()
+      setQuestions(quiz.questions)
+      setScreen('quiz')
+    } catch {
+      stopCycle()
+      setGenerationError("We couldn't generate a quiz. Try a different number of questions or re-upload your materials.")
+      setScreen('topics')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -29,7 +74,7 @@ export default function TopicsScreen() {
           {topics.length} topics found
         </p>
         <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', lineHeight: 1.72 }}>
-          Your quiz will cover all of these. Review them before you start.
+          Review the topics below, then choose how many questions you want per topic.
         </p>
       </div>
 
@@ -45,11 +90,11 @@ export default function TopicsScreen() {
             borderRadius: 10
           }}
         >
-          ⚠ {budget.excluded_files.length} file(s) were not included — content budget reached.
+          {budget.excluded_files.length} file(s) were not included — content budget reached.
         </p>
       )}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 28 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 32 }}>
         {topics.map((topic, i) => (
           <span
             key={`${topic}-${i}`}
@@ -71,10 +116,57 @@ export default function TopicsScreen() {
         ))}
       </div>
 
+      <div style={{ marginBottom: 24 }}>
+        <p style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          marginBottom: 10,
+        }}>
+          Questions per topic
+        </p>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {[1, 2, 3].map(n => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setPerTopic(n)}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 10,
+                border: perTopic === n ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+                background: perTopic === n ? 'rgba(139, 92, 246, 0.15)' : 'var(--surface)',
+                color: perTopic === n ? 'var(--accent)' : 'var(--text-muted)',
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 17,
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {n}
+            </button>
+          ))}
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 6 }}>
+            ~{topics.length * perTopic} questions total
+          </span>
+        </div>
+      </div>
+
+      {generationError && (
+        <p style={{ color: '#ef4444', marginBottom: 14, fontSize: 14 }}>
+          {generationError}
+        </p>
+      )}
+
       <button
         className="cta-button"
         type="button"
-        onClick={() => setScreen('quiz')}
+        onClick={handleStart}
+        disabled={loading}
         style={{
           width: '100%',
           padding: '14px 18px',
@@ -86,7 +178,8 @@ export default function TopicsScreen() {
           fontSize: 15.5,
           fontWeight: 700,
           letterSpacing: '0.01em',
-          cursor: 'pointer'
+          cursor: loading ? 'not-allowed' : 'pointer',
+          opacity: loading ? 0.7 : 1,
         }}
       >
         Start quiz →
