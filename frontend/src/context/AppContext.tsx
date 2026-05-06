@@ -20,6 +20,7 @@ interface AppState {
   setQuestions: (q: any[]) => void
   setAnswer: (qid: number, selected: string) => void
   setResults: (r: any) => void
+  resetForNewUpload: () => void
 }
 
 const AppContext = createContext<AppState | null>(null)
@@ -37,6 +38,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setAnswer = (qid: number, selected: string) =>
     setAnswers(prev => ({ ...prev, [qid]: selected }))
 
+  const resetForNewUpload = () => {
+    setSessionId('')
+    setTopics([])
+    setBudget(null)
+    setQuestions([])
+    setAnswers({})
+    setResults(null)
+  }
+
   return (
     <AppContext.Provider value={{
       screen, setScreen,
@@ -46,7 +56,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       budget, setBudget,
       questions, setQuestions,
       answers, setAnswer,
-      results, setResults
+      results, setResults,
+      resetForNewUpload
     }}>
       {children}
     </AppContext.Provider>

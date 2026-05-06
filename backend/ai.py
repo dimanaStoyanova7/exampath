@@ -1,11 +1,26 @@
 import os
 import json
+import traceback
 import anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+
+def _extract_json_array(raw: str) -> list:
+    """Parse a JSON array from Claude's response, tolerating code fences and surrounding prose."""
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+    start = raw.find("[")
+    end = raw.rfind("]")
+    if start == -1 or end == -1:
+        raise json.JSONDecodeError("No JSON array found in response", raw, 0)
+    return json.loads(raw[start:end + 1])
 
 def extract_topics(full_text: str, num_pdfs: int = 1) -> list[str]:
     if num_pdfs == 1:
@@ -44,14 +59,7 @@ Return the JSON array now:"""
     )
 
     raw = message.content[0].text.strip()
-
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-
-    topics = json.loads(raw)
+    topics = _extract_json_array(raw)
 
     if not isinstance(topics, list):
         raise ValueError("Claude did not return a list")
@@ -107,20 +115,25 @@ Return format:
 
 Return the full JSON array now:"""
 
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=4000,
-        messages=[{"role": "user", "content": prompt}]
-    )
+    last_exc: Exception = RuntimeError("generate_quiz: no attempts made")
+    questions = None
+    for attempt in range(3):
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=4000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        raw = message.content[0].text.strip()
+        try:
+            questions = _extract_json_array(raw)
+            break
+        except json.JSONDecodeError as e:
+            last_exc = e
+            print(f"[generate_quiz] attempt {attempt + 1}/3 — JSON parse failed: {e} | raw[:200]: {raw[:200]}")
+    else:
+        traceback.print_exc()
+        raise last_exc
 
-    raw = message.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-
-    questions = json.loads(raw)
     if not isinstance(questions, list):
         raise ValueError("Claude did not return a list")
 
@@ -193,13 +206,7 @@ Return the JSON array now:"""
     )
 
     raw = message.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-
-    judgments = json.loads(raw)
+    judgments = _extract_json_array(raw)
     if not isinstance(judgments, list):
         raise ValueError("Claude did not return a list")
     return judgments

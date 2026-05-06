@@ -4,10 +4,12 @@ import { useApp } from '@/context/AppContext'
 import { uploadAndAnalyze, generateQuiz } from '@/lib/api'
 
 export default function UploadScreen() {
-  const { setScreen, setLoadingMessage, setSessionId, setTopics, setBudget, setQuestions } = useApp()
+  const { setScreen, setLoadingMessage, setSessionId, setTopics, setBudget, setQuestions, resetForNewUpload } = useApp()
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')
+  const [quizFailed, setQuizFailed] = useState(false)
+  const quizRetryId = useRef('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const addFiles = (incoming: FileList | null) => {
@@ -31,20 +33,51 @@ export default function UploadScreen() {
   const handleSubmit = async () => {
     if (files.length === 0) { setError('Add at least one PDF.'); return }
     setError('')
+    setQuizFailed(false)
+    quizRetryId.current = ''
+    resetForNewUpload()
     setLoadingMessage('Analyzing your materials…')
     setScreen('loading')
+
+    let data: any
     try {
-      const data = await uploadAndAnalyze(files)
-      setSessionId(data.session_id)
-      setTopics(data.topics)
-      setBudget(data.budget)
-      setLoadingMessage('Generating your quiz…')
+      data = await uploadAndAnalyze(files)
+    } catch {
+      setScreen('upload')
+      setError('Upload failed. Check your connection and try again.')
+      return
+    }
+
+    setSessionId(data.session_id)
+    setTopics(data.topics)
+    setBudget(data.budget)
+    quizRetryId.current = data.session_id
+    setLoadingMessage('Generating your quiz…')
+
+    try {
       const quiz = await generateQuiz(data.session_id)
       setQuestions(quiz.questions)
       setScreen('topics')
-    } catch (e: any) {
+    } catch {
       setScreen('upload')
-      setError('Something went wrong. Check your backend is running.')
+      setError('Quiz generation failed.')
+      setQuizFailed(true)
+    }
+  }
+
+  const handleRetryQuiz = async () => {
+    if (!quizRetryId.current) return
+    setError('')
+    setQuizFailed(false)
+    setLoadingMessage('Generating your quiz…')
+    setScreen('loading')
+    try {
+      const quiz = await generateQuiz(quizRetryId.current)
+      setQuestions(quiz.questions)
+      setScreen('topics')
+    } catch {
+      setScreen('upload')
+      setError('Quiz generation failed again. Please try re-uploading.')
     }
   }
 
@@ -171,9 +204,32 @@ export default function UploadScreen() {
       )}
 
       {error && (
-        <p style={{ color: '#ef4444', marginBottom: 12, fontSize: 14 }}>
+        <p style={{ color: '#ef4444', marginBottom: 10, fontSize: 14 }}>
           {error}
         </p>
+      )}
+
+      {quizFailed && (
+        <button
+          type="button"
+          onClick={handleRetryQuiz}
+          style={{
+            display: 'block',
+            marginBottom: 14,
+            padding: '10px 18px',
+            borderRadius: 10,
+            border: '1px solid var(--accent)',
+            background: 'transparent',
+            color: 'var(--accent)',
+            fontFamily: 'DM Sans, sans-serif',
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+            letterSpacing: '0.01em'
+          }}
+        >
+          Retry quiz generation →
+        </button>
       )}
 
       <button
