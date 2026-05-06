@@ -30,35 +30,59 @@ export default function UploadScreen() {
   const removeFile = (i: number) =>
     setFiles(prev => prev.filter((_, idx) => idx !== i))
 
+  const startMessageCycle = (msgs: string[], ms = 4000) => {
+    setLoadingMessage(msgs[0])
+    if (msgs.length === 1) return () => {}
+    let i = 0
+    const id = setInterval(() => {
+      i = (i + 1) % msgs.length
+      setLoadingMessage(msgs[i])
+    }, ms)
+    return () => clearInterval(id)
+  }
+
   const handleSubmit = async () => {
     if (files.length === 0) { setError('Add at least one PDF.'); return }
     setError('')
     setQuizFailed(false)
     quizRetryId.current = ''
     resetForNewUpload()
-    setLoadingMessage('Analyzing your materials…')
     setScreen('loading')
+
+    let stopCycle = startMessageCycle([
+      'Reading your materials…',
+      'Identifying key topics…',
+    ], 4500)
 
     let data: any
     try {
       data = await uploadAndAnalyze(files)
     } catch {
+      stopCycle()
       setScreen('upload')
       setError('Upload failed. Check your connection and try again.')
       return
     }
+    stopCycle()
 
     setSessionId(data.session_id)
     setTopics(data.topics)
     setBudget(data.budget)
     quizRetryId.current = data.session_id
-    setLoadingMessage('Generating your quiz…')
+
+    stopCycle = startMessageCycle([
+      'Crafting your questions…',
+      'Calibrating difficulty…',
+      'Almost ready…',
+    ], 4000)
 
     try {
       const quiz = await generateQuiz(data.session_id)
+      stopCycle()
       setQuestions(quiz.questions)
       setScreen('topics')
     } catch {
+      stopCycle()
       setScreen('upload')
       setError('Quiz generation failed.')
       setQuizFailed(true)
@@ -69,13 +93,21 @@ export default function UploadScreen() {
     if (!quizRetryId.current) return
     setError('')
     setQuizFailed(false)
-    setLoadingMessage('Generating your quiz…')
     setScreen('loading')
+
+    const stopCycle = startMessageCycle([
+      'Crafting your questions…',
+      'Calibrating difficulty…',
+      'Almost ready…',
+    ], 4000)
+
     try {
       const quiz = await generateQuiz(quizRetryId.current)
+      stopCycle()
       setQuestions(quiz.questions)
       setScreen('topics')
     } catch {
+      stopCycle()
       setScreen('upload')
       setError('Quiz generation failed again. Please try re-uploading.')
     }
