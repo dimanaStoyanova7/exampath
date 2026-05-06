@@ -83,6 +83,7 @@ Rules:
 - Questions must test genuine understanding, not just memorisation.
 - For MCQ: make all 4 options plausible — avoid obviously wrong distractors.
 - For True/False: make the statement specific, not trivially obvious.
+- For True/False: ALWAYS include BOTH options: {"a": "True", "b": "False"}. Never omit one.
 - The correct answer must be unambiguously correct based on the course material.
 - Return ONLY a valid JSON array. No explanation, no markdown, no extra text.
 
@@ -129,13 +130,27 @@ Return the full JSON array now:"""
             continue
         if not all(k in q for k in ["topic", "question", "options", "correct_answer"]):
             continue
+        options = q["options"]
+        if not isinstance(options, dict) or len(options) == 0:
+            continue
+        correct = str(q["correct_answer"]).lower()
+        question_type = str(q.get("question_type", "mcq"))
+        # Fix questions that only have 1 option — force to proper True/False
+        if len(options) == 1:
+            options = {"a": "True", "b": "False"}
+            question_type = "true_false"
+            if correct not in ("a", "b"):
+                correct = "a"
+        # Skip if the declared correct answer isn't among the options
+        if correct not in options:
+            continue
         result.append({
             "question_id": i,
             "topic": str(q["topic"]),
             "question": str(q["question"]),
-            "question_type": str(q.get("question_type", "mcq")),
-            "options": q["options"],
-            "correct_answer": str(q["correct_answer"]).lower()
+            "question_type": question_type,
+            "options": options,
+            "correct_answer": correct
         })
 
     return result
