@@ -5,7 +5,7 @@ import { uploadAndAnalyze, generateQuiz } from '@/lib/api'
 
 export default function UploadScreen() {
   const { setScreen, setLoadingMessage, setSessionId, setTopics, setBudget, setQuestions } = useApp()
-  const [files, setFiles] = useState([])
+  const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef(null)
