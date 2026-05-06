@@ -89,6 +89,8 @@ For each question decide whether it suits a 4-option MCQ or a True/False questio
 
 Rules:
 - Questions must test genuine understanding, not just memorisation.
+- Keep each question under 20 words. Be direct — no preamble like "According to the material…".
+- Keep each answer option under 10 words. No full sentences — use concise phrases.
 - For MCQ: make all 4 options plausible — avoid obviously wrong distractors.
 - For True/False: make the statement specific, not trivially obvious.
 - For True/False: ALWAYS include BOTH options: {{"a": "True", "b": "False"}}. Never omit one.
