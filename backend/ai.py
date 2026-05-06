@@ -24,11 +24,11 @@ def _extract_json_array(raw: str) -> list:
 
 def extract_topics(full_text: str, num_pdfs: int = 1) -> list[str]:
     if num_pdfs == 1:
-        min_topics, max_topics = 5, 15
+        min_topics, max_topics = 4, 8
     elif num_pdfs <= 3:
-        min_topics, max_topics = 10, 20
+        min_topics, max_topics = 6, 12
     else:
-        min_topics, max_topics = 15, 30
+        min_topics, max_topics = 10, 18
 
     prompt = f"""You are an expert university teaching assistant.
 
