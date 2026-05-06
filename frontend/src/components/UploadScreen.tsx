@@ -57,10 +57,10 @@ export default function UploadScreen() {
     let data: any
     try {
       data = await uploadAndAnalyze(files)
-    } catch {
+    } catch (e: any) {
       stopCycle()
       setScreen('upload')
-      setError('Upload failed. Check your connection and try again.')
+      setError(e.message || 'Upload failed. Check your connection and try again.')
       return
     }
     stopCycle()

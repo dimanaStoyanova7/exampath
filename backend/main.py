@@ -97,10 +97,16 @@ async def extract_topics_route(files: Annotated[list[UploadFile], File(...)]):
             os.unlink(tmp_path)
 
         if extraction["char_count"] == 0:
-            skipped_files.append({"filename": file.filename, "reason": "no extractable text — may be scanned"})
+            skipped_files.append({"filename": file.filename, "reason": "no extractable text — scanned or handwritten"})
             continue
 
         file_text = extraction["full_text"]
+
+        # Reject low-quality text — too short or mostly non-printable (QR codes, image metadata, etc.)
+        printable_ratio = sum(1 for c in file_text if c.isalnum() or c.isspace()) / len(file_text)
+        if len(file_text) < 150 or printable_ratio < 0.55:
+            skipped_files.append({"filename": file.filename, "reason": "extracted text is too short or garbled — possibly a QR code or image-only PDF"})
+            continue
         file_chars = len(file_text)
 
         if chars_used + file_chars > CHAR_BUDGET:
@@ -127,7 +133,14 @@ async def extract_topics_route(files: Annotated[list[UploadFile], File(...)]):
             included_files.append({"filename": file.filename, "chars": file_chars, "trimmed": False})
 
     if not collected_texts:
-        raise HTTPException(status_code=422, detail="Could not extract text from any of the uploaded files")
+        all_reasons = [s["reason"] for s in skipped_files]
+        if any("scanned or handwritten" in r for r in all_reasons):
+            detail = "Your PDFs appear to be scanned or handwritten. Only PDFs with selectable text are supported — try exporting from a presentation or document editor."
+        elif any("QR code" in r for r in all_reasons):
+            detail = "Could not extract usable content — one or more files appear to be QR codes or image-only PDFs."
+        else:
+            detail = "Could not extract text from any of the uploaded files. Make sure your PDFs contain selectable text."
+        raise HTTPException(status_code=422, detail=detail)
 
     combined_text = "\n\n---\n\n".join(collected_texts)
 
