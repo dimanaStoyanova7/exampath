@@ -1,4 +1,5 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { useApp } from '@/context/AppContext'
 import UploadScreen from './UploadScreen'
 import TopicsScreen from './TopicsScreen'
@@ -8,6 +9,22 @@ import ResultsScreen from './ResultsScreen'
 
 export default function AppShell() {
   const { screen, expiryState, dismissExpiryWarning, resetForNewUpload, setScreen } = useApp()
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+
+  useEffect(() => {
+    const stored = localStorage.getItem('theme') as 'dark' | 'light' | null
+    if (stored) {
+      setTheme(stored)
+      document.documentElement.setAttribute('data-theme', stored)
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.setAttribute('data-theme', next)
+    localStorage.setItem('theme', next)
+  }
 
   let content
   if (screen === 'loading' || screen === 'grading') content = <LoadingScreen />
@@ -19,6 +36,31 @@ export default function AppShell() {
   return (
     <>
       {content}
+
+      <button
+        type="button"
+        onClick={toggleTheme}
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        style={{
+          position: 'fixed',
+          top: 14,
+          right: 16,
+          zIndex: 900,
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          padding: '5px 11px',
+          cursor: 'pointer',
+          fontSize: 12,
+          fontFamily: 'DM Sans, sans-serif',
+          fontWeight: 600,
+          color: 'var(--text-muted)',
+          letterSpacing: '0.04em',
+          transition: 'border-color 0.15s, color 0.15s',
+        }}
+      >
+        {theme === 'dark' ? 'Light' : 'Dark'}
+      </button>
 
       {expiryState === 'warning' && (
         <div style={{
