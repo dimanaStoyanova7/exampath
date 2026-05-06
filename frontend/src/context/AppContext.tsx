@@ -23,6 +23,12 @@ interface AppState {
   resetForNewUpload: () => void
   expiryState: 'none' | 'warning' | 'expired'
   dismissExpiryWarning: () => void
+  uploadError: string
+  setUploadError: (msg: string) => void
+  quizFailed: boolean
+  setQuizFailed: (v: boolean) => void
+  quizRetryId: string
+  setQuizRetryId: (id: string) => void
 }
 
 const AppContext = createContext<AppState | null>(null)
@@ -36,6 +42,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [questions, setQuestions] = useState<any[]>([])
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const [results, setResults] = useState<any>(null)
+  const [uploadError, setUploadError] = useState('')
+  const [quizFailed, setQuizFailed] = useState(false)
+  const [quizRetryId, setQuizRetryId] = useState('')
   const [expiryState, setExpiryState] = useState<'none' | 'warning' | 'expired'>('none')
   const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -65,6 +74,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setQuestions([])
     setAnswers({})
     setResults(null)
+    setUploadError('')
+    setQuizFailed(false)
+    setQuizRetryId('')
   }
 
   return (
@@ -80,6 +92,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       resetForNewUpload,
       expiryState,
       dismissExpiryWarning,
+      uploadError, setUploadError,
+      quizFailed, setQuizFailed,
+      quizRetryId, setQuizRetryId,
     }}>
       {children}
     </AppContext.Provider>

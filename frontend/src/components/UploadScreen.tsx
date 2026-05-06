@@ -4,12 +4,15 @@ import { useApp } from '@/context/AppContext'
 import { uploadAndAnalyze, generateQuiz } from '@/lib/api'
 
 export default function UploadScreen() {
-  const { setScreen, setLoadingMessage, setSessionId, setTopics, setBudget, setQuestions, resetForNewUpload } = useApp()
+  const {
+    setScreen, setLoadingMessage, setSessionId, setTopics, setBudget, setQuestions,
+    resetForNewUpload,
+    uploadError, setUploadError,
+    quizFailed, setQuizFailed,
+    quizRetryId, setQuizRetryId,
+  } = useApp()
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
-  const [error, setError] = useState('')
-  const [quizFailed, setQuizFailed] = useState(false)
-  const quizRetryId = useRef('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const addFiles = (incoming: FileList | null) => {
@@ -42,10 +45,7 @@ export default function UploadScreen() {
   }
 
   const handleSubmit = async () => {
-    if (files.length === 0) { setError('Add at least one PDF.'); return }
-    setError('')
-    setQuizFailed(false)
-    quizRetryId.current = ''
+    if (files.length === 0) { setUploadError('Add at least one PDF.'); return }
     resetForNewUpload()
     setScreen('loading')
 
@@ -59,8 +59,8 @@ export default function UploadScreen() {
       data = await uploadAndAnalyze(files)
     } catch (e: any) {
       stopCycle()
+      setUploadError(e.message || 'Upload failed. Check your connection and try again.')
       setScreen('upload')
-      setError(e.message || 'Upload failed. Check your connection and try again.')
       return
     }
     stopCycle()
@@ -68,7 +68,7 @@ export default function UploadScreen() {
     setSessionId(data.session_id)
     setTopics(data.topics)
     setBudget(data.budget)
-    quizRetryId.current = data.session_id
+    setQuizRetryId(data.session_id)
 
     stopCycle = startMessageCycle([
       'Crafting your questions…',
@@ -83,15 +83,15 @@ export default function UploadScreen() {
       setScreen('topics')
     } catch {
       stopCycle()
-      setScreen('upload')
-      setError('Quiz generation failed.')
+      setUploadError('Quiz generation failed.')
       setQuizFailed(true)
+      setScreen('upload')
     }
   }
 
   const handleRetryQuiz = async () => {
-    if (!quizRetryId.current) return
-    setError('')
+    if (!quizRetryId) return
+    setUploadError('')
     setQuizFailed(false)
     setScreen('loading')
 
@@ -102,14 +102,14 @@ export default function UploadScreen() {
     ], 4000)
 
     try {
-      const quiz = await generateQuiz(quizRetryId.current)
+      const quiz = await generateQuiz(quizRetryId)
       stopCycle()
       setQuestions(quiz.questions)
       setScreen('topics')
     } catch {
       stopCycle()
+      setUploadError('Quiz generation failed again. Please try re-uploading.')
       setScreen('upload')
-      setError('Quiz generation failed again. Please try re-uploading.')
     }
   }
 
@@ -235,9 +235,9 @@ export default function UploadScreen() {
         </div>
       )}
 
-      {error && (
+      {uploadError && (
         <p style={{ color: '#ef4444', marginBottom: 10, fontSize: 14 }}>
-          {error}
+          {uploadError}
         </p>
       )}
 
