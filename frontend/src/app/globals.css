@@ -56,7 +56,7 @@ h1, h2, h3 {
 
 .animate-fade-up  { animation: fadeUp 0.35s ease both; opacity: 0; }
 .animate-fade-in  { animation: fadeIn  0.25s ease both; }
-.animate-slide    { animation: slideLeft 0.3s ease both; }
+.animate-slide { animation: slideLeft 0.3s ease both; opacity: 0; }
 .animate-pulse-slow { animation: pulse 2s ease infinite; }
 
 .premium-card {
