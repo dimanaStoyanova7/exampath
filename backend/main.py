@@ -2,6 +2,7 @@ import tempfile
 import os
 import json
 import uuid
+import traceback
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -146,8 +147,10 @@ async def generate_quiz_route(body: SessionRequest):
     try:
         questions = generate_quiz(session["topics"], session["full_text"])
     except json.JSONDecodeError as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Claude returned invalid JSON: {str(e)}")
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Quiz generation failed: {type(e).__name__}: {str(e)}")
 
     session["quiz"] = questions  # stored WITH correct_answer
