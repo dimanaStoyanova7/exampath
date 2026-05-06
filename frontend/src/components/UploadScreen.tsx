@@ -8,7 +8,7 @@ export default function UploadScreen() {
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')
-  const inputRef = useRef(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const addFiles = (incoming: FileList | null) => {
     if (!incoming) return
