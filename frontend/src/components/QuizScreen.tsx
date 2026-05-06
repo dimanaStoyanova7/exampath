@@ -125,10 +125,11 @@ export default function QuizScreen() {
       >
         <h2
           style={{
-            fontFamily: 'Playfair Display, serif',
-            fontSize: 'clamp(2rem, 4.6vw, 3.1rem)',
-            lineHeight: 1.05,
-            letterSpacing: '-0.02em',
+            fontFamily: 'DM Sans, sans-serif',
+            fontSize: 'clamp(1.15rem, 2.2vw, 1.45rem)',
+            lineHeight: 1.55,
+            letterSpacing: '0',
+            fontWeight: 500,
             marginBottom: 22
           }}
         >
