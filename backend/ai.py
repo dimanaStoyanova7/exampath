@@ -183,20 +183,24 @@ def generate_topic_judgments(topic_scores: list[dict]) -> list[dict]:
         )
     scores_block = "\n".join(lines)
 
-    prompt = f"""You are a university professor reviewing a student's quiz results.
+    prompt = f"""You are reviewing a student's quiz results. Write one short, plain-English phrase per topic (max 10 words) telling the student what their score means for exam prep.
 
-Here are the results per topic:
+Keep it casual and direct. No academic language. No words like "demonstrated", "comprehension", "proficiency".
+
+Good examples:
+- "Good — just review the edge cases before the exam."
+- "Shaky here — worth spending more time on this."
+- "Solid — you've got this topic covered."
+- "A few gaps — go back over the basics."
+
+Here are the results:
 {scores_block}
-
-For each topic write:
-- tier: "positive" if more than half correct, "negative" if half or fewer correct, "neutral" if exactly half
-- judgment: one sentence describing the student's understanding of this topic
 
 Return ONLY a valid JSON array. No markdown, no extra text.
 
 Return format:
 [
-  {{"topic": "...", "tier": "positive", "judgment": "..."}}
+  {{"topic": "...", "judgment": "..."}}
 ]
 
 Return the JSON array now:"""

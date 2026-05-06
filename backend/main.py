@@ -244,7 +244,7 @@ async def submit_answers_route(body: SubmitAnswersRequest):
             "topic": t["topic"],
             "correct": t["correct"],
             "total": t["total"],
-            "tier": j.get("tier", tier),  # prefer Claude's tier, fall back to computed
+            "tier": tier,
             "judgment": j.get("judgment", "")
         })
 
