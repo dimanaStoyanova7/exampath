@@ -63,6 +63,12 @@ export default function UploadScreen() {
     }
     stopCycle()
 
+    if (data.topics.length === 0) {
+      setUploadError("No exam topics could be found in your materials. Try uploading a different document.")
+      setScreen('upload')
+      return
+    }
+
     setSessionId(data.session_id)
     setTopics(data.topics)
     setBudget(data.budget)
