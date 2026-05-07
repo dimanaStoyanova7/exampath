@@ -134,7 +134,11 @@ async def extract_topics_route(files: Annotated[list[UploadFile], File(...)]):
         raise HTTPException(status_code=500, detail=f"Topic extraction failed: {type(e).__name__}: {str(e)}")
 
     session_id = str(uuid.uuid4())
-    db.create_session(session_id, topics, combined_text)
+    try:
+        db.create_session(session_id, topics, combined_text)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"DB error: {type(e).__name__}: {str(e)}")
 
     return {
         "session_id": session_id,
