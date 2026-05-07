@@ -4,6 +4,10 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'ExamPath',
   description: 'Know exactly what to study.',
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export default function RootLayout({
