@@ -96,9 +96,11 @@ Rules:
 - Never write questions about course logistics, attendance, grading, deadlines, office hours, or anything administrative.
 - Keep each question under 20 words. Be direct — no preamble like "According to the material…".
 - Keep each answer option under 10 words. No full sentences — use concise phrases.
+- For MCQ: all 4 options must be structurally identical — same grammatical form, similar length. Never make one option obviously different from the others (e.g. do not write three specific items and one vague catch-all like "all of the above" or "multiple things"). A student should not be able to guess the answer from the shape of the options alone.
 - For MCQ: make all 4 options plausible — avoid obviously wrong distractors.
 - For True/False: make the statement specific, not trivially obvious.
 - For True/False: ALWAYS include BOTH options: {{"a": "True", "b": "False"}}. Never omit one.
+- For True/False: roughly half of your True/False questions must have "False" as the correct answer. Do not default to True. Write False questions by taking a real concept and stating it incorrectly in a plausible way.
 - The correct answer must be unambiguously correct based on the course material.
 - Return ONLY a valid JSON array. No explanation, no markdown, no extra text.
 
