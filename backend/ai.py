@@ -41,7 +41,8 @@ Rules:
 - Write "Eigenvalue decomposition" not "linear algebra".
 - Each topic should be something a student could be tested on in an exam.
 - Do not include duplicates or near-duplicates — if two documents cover the same topic, list it once.
-- Do not include administrative topics like "course overview" or "grading".
+- Strictly exclude any administrative or logistics content: attendance policies, grading schemes, deadlines, office hours, instructor bios, course introductions, learning objectives slides, or anything about how the course is run.
+- Only include academic subject matter — concepts, theories, methods, algorithms, principles that appear in the course content itself.
 - Return ONLY a valid JSON array of strings. No explanation, no markdown, no extra text.
 
 Example of good output:
@@ -91,7 +92,8 @@ For each question decide whether it suits a 4-option MCQ or a True/False questio
 - Use 4-option MCQ for questions requiring understanding or distinction between concepts.
 
 Rules:
-- Questions must test genuine understanding, not just memorisation.
+- Questions must test genuine understanding of academic subject matter only.
+- Never write questions about course logistics, attendance, grading, deadlines, office hours, or anything administrative.
 - Keep each question under 20 words. Be direct — no preamble like "According to the material…".
 - Keep each answer option under 10 words. No full sentences — use concise phrases.
 - For MCQ: make all 4 options plausible — avoid obviously wrong distractors.
