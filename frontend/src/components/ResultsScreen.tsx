@@ -123,10 +123,12 @@ export default function ResultsScreen() {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                padding: '3px 9px',
+                padding: '3px 0',
                 borderRadius: 6,
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
+                width: 92,
+                textAlign: 'center',
                 color: TIER_COLOR[t.tier],
                 border: `1px solid ${TIER_COLOR[t.tier]}`,
                 background: `${TIER_COLOR[t.tier]}18`,
