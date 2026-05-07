@@ -2,10 +2,9 @@ import tempfile
 import os
 import json
 import uuid
-import asyncio
 import traceback
-from datetime import datetime, timedelta
-from contextlib import asynccontextmanager
+from datetime import datetime, timezone, timedelta
+import db
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,38 +16,21 @@ from ai import extract_topics, generate_quiz, generate_topic_judgments
 load_dotenv()
 
 SESSION_TTL = timedelta(minutes=15)
-sessions: dict = {}
 
-
-async def _cleanup_sessions():
-    while True:
-        await asyncio.sleep(300)
-        cutoff = datetime.utcnow() - SESSION_TTL
-        expired = [sid for sid, s in list(sessions.items()) if s["last_accessed"] < cutoff]
-        for sid in expired:
-            sessions.pop(sid, None)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    task = asyncio.create_task(_cleanup_sessions())
-    yield
-    task.cancel()
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 def _get_session(session_id: str) -> dict | None:
-    """Return the session if it exists and hasn't expired; update last_accessed."""
-    s = sessions.get(session_id)
-    if not s:
+    session = db.get_session(session_id)
+    if not session:
         return None
-    if datetime.utcnow() - s["last_accessed"] > SESSION_TTL:
-        sessions.pop(session_id, None)
+    last_str = session["last_accessed"]
+    last_accessed = datetime.fromisoformat(last_str.replace("Z", "+00:00"))
+    if datetime.now(timezone.utc) - last_accessed > SESSION_TTL:
+        db.delete_session(session_id)
         return None
-    s["last_accessed"] = datetime.utcnow()
-    return s
+    db.touch_session(session_id)
+    return session
 
 app.add_middleware(
     CORSMiddleware,
@@ -152,14 +134,7 @@ async def extract_topics_route(files: Annotated[list[UploadFile], File(...)]):
         raise HTTPException(status_code=500, detail=f"Topic extraction failed: {type(e).__name__}: {str(e)}")
 
     session_id = str(uuid.uuid4())
-    sessions[session_id] = {
-        "session_id": session_id,
-        "topics": topics,
-        "full_text": combined_text,
-        "quiz": None,
-        "results": None,
-        "last_accessed": datetime.utcnow(),
-    }
+    db.create_session(session_id, topics, combined_text)
 
     return {
         "session_id": session_id,
@@ -201,7 +176,7 @@ async def generate_quiz_route(body: SessionRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Quiz generation failed: {type(e).__name__}: {str(e)}")
 
-    session["quiz"] = questions  # stored WITH correct_answer
+    db.update_session(body.session_id, quiz=questions)
 
     # Return WITHOUT correct_answer
     safe_questions = [
@@ -308,19 +283,26 @@ async def submit_answers_route(body: SubmitAnswersRequest):
         "topic_summaries": topic_summaries
     }
 
-    session["results"] = results
+    db.update_session(body.session_id, results=results)
     return results
 
 
 @app.get("/session/{session_id}")
-async def get_session(session_id: str):
+async def get_session_route(session_id: str):
     session = _get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found or expired")
+
+    quiz = None
+    if session["quiz"] is not None:
+        quiz = [
+            {k: v for k, v in q.items() if k != "correct_answer"}
+            for q in session["quiz"]
+        ]
+
     return {
         "session_id": session_id,
         "topics": session["topics"],
-        "quiz_generated": session["quiz"] is not None,
-        "quiz_question_count": len(session["quiz"]) if session["quiz"] else 0,
-        "results_available": session["results"] is not None
+        "quiz": quiz,
+        "results": session["results"],
     }

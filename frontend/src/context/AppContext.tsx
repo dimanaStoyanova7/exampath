@@ -1,5 +1,6 @@
 'use client'
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
+import { fetchSession } from '@/lib/api'
 
 export type Screen = 'upload' | 'loading' | 'topics' | 'quiz' | 'grading' | 'results'
 
@@ -46,6 +47,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Restore session from localStorage on mount
+  useEffect(() => {
+    const savedId = localStorage.getItem('lr_session_id')
+    if (!savedId) return
+    fetchSession(savedId)
+      .then((data: any) => {
+        setSessionId(data.session_id)
+        setTopics(data.topics)
+        if (data.results) {
+          setResults(data.results)
+          setScreen('results')
+        } else if (data.quiz) {
+          setQuestions(data.quiz)
+          const savedAnswers = localStorage.getItem('lr_answers')
+          if (savedAnswers) {
+            try { setAnswers(JSON.parse(savedAnswers)) } catch {}
+          }
+          setScreen('quiz')
+        } else {
+          setScreen('topics')
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('lr_session_id')
+        localStorage.removeItem('lr_answers')
+      })
+  }, [])
+
+  // Persist sessionId to localStorage
+  useEffect(() => {
+    if (sessionId) {
+      localStorage.setItem('lr_session_id', sessionId)
+    } else {
+      localStorage.removeItem('lr_session_id')
+    }
+  }, [sessionId])
+
+  // Persist answers to localStorage
+  useEffect(() => {
+    if (Object.keys(answers).length > 0) {
+      localStorage.setItem('lr_answers', JSON.stringify(answers))
+    }
+  }, [answers])
+
   useEffect(() => {
     if (warningTimer.current) clearTimeout(warningTimer.current)
     if (expiryTimer.current) clearTimeout(expiryTimer.current)
@@ -73,6 +118,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setResults(null)
     setUploadError('')
     setGenerationError('')
+    localStorage.removeItem('lr_session_id')
+    localStorage.removeItem('lr_answers')
   }
 
   return (

@@ -27,6 +27,12 @@ export async function generateQuiz(sessionId: string, questionsPerTopic: number 
   return res.json()
 }
 
+export async function fetchSession(sessionId: string) {
+  const res = await fetch(`${BASE}/session/${sessionId}`)
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
+
 export async function submitAnswers(sessionId: string, answers: { question_id: number; selected: string }[]) {
   const res = await fetch(`${BASE}/submit-answers`, {
     method: 'POST',
