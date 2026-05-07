@@ -103,7 +103,7 @@ export default function UploadScreen() {
             maxWidth: 640
           }}
         >
-          Upload your course materials. ExamPath diagnoses your knowledge gaps and tells you where to focus.
+          Upload your course materials. LearningRadar diagnoses your knowledge gaps and tells you where to focus.
         </p>
       </div>
 
