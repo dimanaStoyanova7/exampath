@@ -103,7 +103,7 @@ export default function UploadScreen() {
             maxWidth: 640
           }}
         >
-          Upload your course materials. We'll generate a quiz, spot your knowledge gaps, and tell you exactly where to focus.
+          Upload your course materials. LearningRadar generates a quiz, spots your knowledge gaps, and tells you exactly where to focus.
         </p>
       </div>
 
